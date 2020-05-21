@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  # VPC
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+      - Key: Name
+        Value: VPC1
+  # InternetGateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: VPC1-IGW
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC1
+      InternetGatewayId: !Ref InternetGateway
+  # RouteTable
+  FrontendRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: AttachGateway
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+      - Key: Name
+        Value: VPC1-FrontendRoute
+  FrontendRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  # Subnet
+  FrontendSubnet:
+    Type: AWS::EC2::Subnet
+    DependsOn: AttachGateway
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: us-west-2a
+      MapPublicIpOnLaunch: 'true'
+      VpcId: !Ref VPC1
+      Tags:
+      - Key: Name
+        Value: VPC1-FrontendSubnet
+  FrontendSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontendSubnet
+      RouteTableId: !Ref FrontendRouteTable
+  # SecurityGroup
+  SecurityGroup1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPC1
+      GroupDescription: Enable some access via user defined port
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 8000
+        ToPort: 8000
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 8888
+        ToPort: 8888
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        FromPort : 0
+        ToPort : 65535
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: Template-SecurityGroup
+  # Interface of EC2
+  EC2Interface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref FrontendSubnet
+      GroupSet:
+        - !Ref SecurityGroup1
+      SourceDestCheck: true
+  # EC2
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-09dd2e08d601bff67
+      KeyName: id_rsa_oga
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref EC2Interface
+          DeviceIndex: 0
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            VolumeSize: 15
+            VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: Template-Instance
+  # Elastic IP of EC2
+  EC2ControlPortAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  EC2AssociateControlPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt EC2ControlPortAddress.AllocationId
+      NetworkInterfaceId: !Ref EC2Interface
