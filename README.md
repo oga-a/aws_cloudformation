@@ -7,7 +7,7 @@ aws s3 mb s3://cf-templates-oga
 aws s3 cp ./aws_cf.yaml s3://cf-templates-oga/aws_cf.yaml
 
 # cf-oga1という名前でstack作成
-aws cloudformation create-stack --stack-name cf-oga1 --template-body https://cf-templates-oga.s3-us-west-2.amazonaws.com/aws_cf.yaml
+aws cloudformation create-stack --stack-name cf-oga1 --template-url https://cf-templates-oga.s3-us-west-2.amazonaws.com/aws_cf.yaml
 
 # stackを破棄、これを実行するとstackに紐づいているVPC, EC2などのリソースもすべて消える。
 aws cloudformation delete-stack --stack-name cf-oga1
